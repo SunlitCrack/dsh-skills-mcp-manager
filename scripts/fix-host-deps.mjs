@@ -23,13 +23,16 @@
  *
  * Kernel location (first one that applies):
  *   DSH_DESKTOP_KERNEL  full path to the kernel's node_modules directory
- *   DSH_DESKTOP_ROOT    the Desktop install root (…/resources/app/node_modules
- *                       is appended)
+ *   DSH_DESKTOP_ROOT    the Desktop install root; the layout is probed, newest first:
+ *                         resources/app.asar.unpacked/node_modules   (DSH Desktop 0.10.0+)
+ *                         resources/app/node_modules                (earlier releases)
+ *                         and the macOS `Contents/Resources/...` prefixes of both
  *
  * Examples
  *   Windows  set DSH_DESKTOP_ROOT=C:\path\to\DSH Desktop
- *   macOS    export DSH_DESKTOP_ROOT="/Applications/DSH Desktop.app/Contents/Resources/app"
- *   Linux    export DSH_DESKTOP_ROOT="$HOME/.local/share/dsh-desktop/resources/app"
+ *   macOS    export DSH_DESKTOP_ROOT="/Applications/DSH Desktop.app"
+ *            (…/DSH Desktop.app/Contents/Resources also works)
+ *   Linux    export DSH_DESKTOP_ROOT="$HOME/.local/share/dsh-desktop"
  *
  * Exits 0 even when the kernel cannot be located (so it is safe as a
  * `postinstall` step); under `--check` a missing kernel is reported as a
@@ -50,10 +53,36 @@ const checkOnly = process.argv.includes('--check')
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const scopeDir = join(pluginRoot, 'node_modules', SCOPE)
 
-/** Resolve the kernel node_modules directory from the environment. */
+/**
+ * Kernel `node_modules` layouts under one Desktop install root, newest first.
+ * DSH Desktop 0.10.0 moved the unpacked kernel from `resources/app/node_modules`
+ * to `resources/app.asar.unpacked/node_modules`, so a hard-coded layout either
+ * points at nothing on 0.10.0 or at the wrong tree on earlier releases.
+ * @param root - the Desktop install root (or its macOS `Contents/Resources`).
+ * @returns candidate paths, probed in order.
+ */
+function kernelCandidates(root) {
+  return [
+    join(root, 'resources', 'app.asar.unpacked', 'node_modules'),
+    join(root, 'resources', 'app', 'node_modules'),
+    join(root, 'Contents', 'Resources', 'app.asar.unpacked', 'node_modules'),
+    join(root, 'Contents', 'Resources', 'app', 'node_modules'),
+    join(root, 'app.asar.unpacked', 'node_modules'),
+    join(root, 'app', 'node_modules'),
+  ]
+}
+
+/**
+ * Resolve the kernel node_modules directory from the environment.
+ * @returns the first candidate that actually carries the kernel copy, else the
+ *   first candidate as a diagnostic path, or undefined without a root hint.
+ */
 function kernelRoot() {
   if (process.env.DSH_DESKTOP_KERNEL) return process.env.DSH_DESKTOP_KERNEL
-  if (process.env.DSH_DESKTOP_ROOT) return join(process.env.DSH_DESKTOP_ROOT, 'resources', 'app', 'node_modules')
+  if (process.env.DSH_DESKTOP_ROOT) {
+    const candidates = kernelCandidates(process.env.DSH_DESKTOP_ROOT)
+    return candidates.find((path) => existsSync(join(path, SCOPE, HOST_DEPS[0]))) ?? candidates[0]
+  }
   return undefined
 }
 

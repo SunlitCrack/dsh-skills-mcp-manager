@@ -44,12 +44,20 @@ async function get<T>(path: string): Promise<T> {
   return readJson<T>(response)
 }
 
+/** Resolved project scope reported alongside a listing. */
+export interface ProjectScopeInfo {
+  /** Project root the panel resolved: the `.git` directory, or the session cwd itself. */
+  projectRoot: string
+  /** True when a `.git` marker (not the cwd fallback) decided the root. */
+  markerFound: boolean
+}
+
 /** The browser half's only data entry point. */
 export class SkillsMcpApi {
-  async listSkills(cwd: string): Promise<SkillSummary[]> {
+  async listSkills(cwd: string): Promise<{ items: SkillSummary[] } & ProjectScopeInfo> {
     const q = cwd ? '?cwd=' + encodeURIComponent(cwd) : ''
-    const body = await get<{ ok: boolean; items: SkillSummary[] }>(SKILLS_MCP_API.skills + q)
-    return body.items
+    const body = await get<{ ok: boolean; items: SkillSummary[]; projectRoot?: string; markerFound?: boolean }>(SKILLS_MCP_API.skills + q)
+    return { items: body.items, projectRoot: body.projectRoot ?? '', markerFound: body.markerFound ?? false }
   }
 
   async readSkill(path: string): Promise<SkillDetail> {
@@ -98,10 +106,10 @@ export class SkillsMcpApi {
   }
 
   /** Every instruction-file seat the harness would consider for this workspace. */
-  async listInstructions(cwd: string): Promise<InstructionSlot[]> {
+  async listInstructions(cwd: string): Promise<{ slots: InstructionSlot[] } & ProjectScopeInfo> {
     const q = cwd ? '?cwd=' + encodeURIComponent(cwd) : ''
-    const body = await get<{ ok: boolean; slots: InstructionSlot[] }>(SKILLS_MCP_API.instructions + q)
-    return body.slots
+    const body = await get<{ ok: boolean; slots: InstructionSlot[]; projectRoot?: string; markerFound?: boolean }>(SKILLS_MCP_API.instructions + q)
+    return { slots: body.slots, projectRoot: body.projectRoot ?? '', markerFound: body.markerFound ?? false }
   }
 
   async readInstruction(path: string, cwd: string): Promise<InstructionDetail> {

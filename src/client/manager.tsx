@@ -55,11 +55,50 @@ const EMPTY_FORM: McpForm = {
   name: '', transport: 'stdio', command: '', args: '', env: '', cwd: '', url: '', headers: '', mode: 'form', json: '',
 }
 
-/** Top-level manager with the Skills / MCP tabs. */
-export function SkillsMcpManager(props: { cwd: string; enabled: boolean; pickDirectory: () => Promise<string | null> }) {
+/** Where the effective project directory came from, plus the manual override. */
+export interface ManagerProps {
+  /** Auto-detected project directory (main-view session cwd → selected session → first workspace). */
+  autoCwd: string
+  /** Human label for how {@link autoCwd} was obtained. */
+  autoSource: string
+  enabled: boolean
+  pickDirectory: () => Promise<string | null>
+}
+
+/** localStorage key holding the user-picked project directory override. */
+const PROJECT_DIR_KEY = 'skills-mcp-manager.projectDir'
+
+function readStoredProjectDir(): string {
+  try { return globalThis.localStorage?.getItem(PROJECT_DIR_KEY) ?? '' } catch { return '' }
+}
+function storeProjectDir(value: string): void {
+  try {
+    if (value === '') globalThis.localStorage?.removeItem(PROJECT_DIR_KEY)
+    else globalThis.localStorage?.setItem(PROJECT_DIR_KEY, value)
+  } catch {
+    // A blocked storage only costs persistence, never the current render.
+  }
+}
+
+/** Top-level manager with the Skills / MCP / instructions tabs. */
+export function SkillsMcpManager(props: ManagerProps) {
   const [tab, setTab] = useState<'skills' | 'mcp' | 'instructions'>('skills')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [manualDir, setManualDir] = useState<string>(() => readStoredProjectDir())
   const bump = () => { setRefreshKey((k) => k + 1) }
+
+  // 手动指定优先：会话识别不到时（或识别错了）这是唯一的确定性出口。
+  const cwd = manualDir !== '' ? manualDir : props.autoCwd
+  const source = manualDir !== '' ? '手动指定' : props.autoSource
+
+  const chooseDir = () => {
+    props.pickDirectory().then((picked) => {
+      if (picked === null || picked === undefined || picked === '') return
+      storeProjectDir(picked)
+      setManualDir(picked)
+    }).catch(() => { /* the picker's own UI reports failures */ })
+  }
+  const useAuto = () => { storeProjectDir(''); setManualDir('') }
 
   return (
     <div className={css.manager}>
@@ -68,20 +107,29 @@ export function SkillsMcpManager(props: { cwd: string; enabled: boolean; pickDir
         <button type="button" className={tab === 'mcp' ? css.tabActive : css.tab} onClick={() => { setTab('mcp') }}>MCP 服务</button>
         <button type="button" className={tab === 'instructions' ? css.tabActive : css.tab} onClick={() => { setTab('instructions') }}>指令文件</button>
       </div>
+      <div className={css.inline}>
+        <div className={css.hGrow}>
+          {'项目目录：' + (cwd === '' ? '未识别（只列用户级）' : cwd) + '　来源：' + source}
+        </div>
+        <button type="button" className={css.btn} onClick={chooseDir}>选择目录…</button>
+        {manualDir !== ''
+          ? <button type="button" className={css.btn} onClick={useAuto}>恢复自动</button>
+          : null}
+      </div>
       {props.enabled
         ? null
         : <p className={css.disabledBanner} role="status">插件已禁用：路由与 MCP 连接均已停止，重新启用后刷新即可恢复。</p>}
       {tab === 'skills'
-        ? <SkillsPanel cwd={props.cwd} refreshKey={refreshKey} onChanged={bump} pickDirectory={props.pickDirectory} />
+        ? <SkillsPanel cwd={cwd} refreshKey={refreshKey} onChanged={bump} pickDirectory={props.pickDirectory} />
         : tab === 'mcp'
           ? <McpPanel refreshKey={refreshKey} onChanged={bump} />
-          : <InstructionsPanel cwd={props.cwd} refreshKey={refreshKey} onChanged={bump} />}
+          : <InstructionsPanel cwd={cwd} refreshKey={refreshKey} onChanged={bump} />}
     </div>
   )
 }
 
 function SkillsPanel(props: { cwd: string; refreshKey: number; onChanged: () => void; pickDirectory: () => Promise<string | null> }) {
-  const [list, setList] = useState<{ loading: boolean; items: SkillSummary[]; error: string }>({ loading: true, items: [], error: '' })
+  const [list, setList] = useState<{ loading: boolean; items: SkillSummary[]; error: string; projectRoot: string; markerFound: boolean }>({ loading: true, items: [], error: '', projectRoot: '', markerFound: false })
   const [detailName, setDetailName] = useState<string | null>(null)
   const [detail, setDetail] = useState<{ path: string; data: any } | null>(null)
   const [scan, setScan] = useState<{ dir: string; busy: boolean; items: ScannedSkill[]; selected: Record<string, boolean>; error: string; note: string }>({ dir: '', busy: false, items: [], selected: {}, error: '', note: '' })
@@ -92,11 +140,11 @@ function SkillsPanel(props: { cwd: string; refreshKey: number; onChanged: () => 
   const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all')
 
   const load = () => {
-    setList({ loading: true, items: [], error: '' })
-    api.listSkills(props.cwd).then((items) => {
-      setList({ loading: false, items, error: '' })
+    setList({ loading: true, items: [], error: '', projectRoot: '', markerFound: false })
+    api.listSkills(props.cwd).then((r) => {
+      setList({ loading: false, items: r.items, error: '', projectRoot: r.projectRoot, markerFound: r.markerFound })
     }).catch((e) => {
-      setList({ loading: false, items: [], error: String((e as Error)?.message || e) })
+      setList({ loading: false, items: [], error: String((e as Error)?.message || e), projectRoot: '', markerFound: false })
     })
   }
 
@@ -257,8 +305,15 @@ function SkillsPanel(props: { cwd: string; refreshKey: number; onChanged: () => 
           <div className={css.hGrow}>技能列表</div>
           <button type="button" className={css.btn} onClick={load}>刷新</button>
         </div>
-        {/* 显示实际扫描的项目工作区，避免「项目级为空」无法自查 */}
-        <div className={css.desc}>{props.cwd ? '项目工作区：' + props.cwd + '（项目级技能读 <工作区>/.dsh/skills 与 .agents/skills）' : '未识别项目工作区，只列出用户级技能'}</div>
+        {/* 显示内核实际解析出的项目根，避免「项目级扫错目录」无法自查 */}
+        <div className={css.desc}>
+          {props.cwd === ''
+            ? '未识别项目工作区，只列出用户级技能'
+            : list.projectRoot === ''
+              ? '项目工作区：' + props.cwd
+              : '项目根：' + list.projectRoot + (list.markerFound ? '（含 .git 标记）' : '（无 .git 标记，按会话目录）')
+                + '　项目级技能读 <项目根>/.dsh/skills 与 <项目根>/.agents/skills'}
+        </div>
         <div className={css.inline}>
           <input className={css.inputGrow} placeholder="搜索技能名称…" value={query} onChange={(e) => { setQuery(e.target.value) }} />
           <select className={css.filterSelect} value={enabledFilter} onChange={(e) => { setEnabledFilter(e.target.value as 'all' | 'enabled' | 'disabled') }}>
@@ -462,7 +517,7 @@ function instructionGroupLabel(scope: string, dir: string, absoluteDir: string):
  * filename, so a rename is a semantic change, not a switch.
  */
 function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: () => void }) {
-  const [list, setList] = useState<{ loading: boolean; slots: InstructionSlot[]; error: string }>({ loading: true, slots: [], error: '' })
+  const [list, setList] = useState<{ loading: boolean; slots: InstructionSlot[]; error: string; projectRoot: string; markerFound: boolean }>({ loading: true, slots: [], error: '', projectRoot: '', markerFound: false })
   const [editing, setEditing] = useState<{ path: string; displayPath: string; bytes: number; truncated: boolean; creating: boolean } | null>(null)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState('')
@@ -470,10 +525,10 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
 
   const load = () => {
-    setList({ loading: true, slots: [], error: '' })
-    api.listInstructions(props.cwd).then((slots) => {
-      setList({ loading: false, slots, error: '' })
-    }).catch((e) => { setList({ loading: false, slots: [], error: String((e as Error)?.message || e) }) })
+    setList({ loading: true, slots: [], error: '', projectRoot: '', markerFound: false })
+    api.listInstructions(props.cwd).then((r) => {
+      setList({ loading: false, slots: r.slots, error: '', projectRoot: r.projectRoot, markerFound: r.markerFound })
+    }).catch((e) => { setList({ loading: false, slots: [], error: String((e as Error)?.message || e), projectRoot: '', markerFound: false }) })
   }
   useEffect(() => { load() }, [props.cwd, props.refreshKey])
 
@@ -543,6 +598,11 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
           每轮会被读进上下文的规则文件；顺序 = 用户级 → 项目根 → 逐级深入（越具体越优先）。
           文件名是白名单（AGENTS.md / CLAUDE.md / *.local.md），改名等于不再被读取，所以这里只做查看 / 编辑 / 新建 / 删除。
         </div>
+        {props.cwd !== '' && list.projectRoot !== ''
+          ? <div className={css.desc}>
+              {'项目根：' + list.projectRoot + (list.markerFound ? '（含 .git 标记）' : '（无 .git 标记，按会话目录）')}
+            </div>
+          : null}
         {msg ? <div className={css.note}>{msg}</div> : null}
         {list.error ? <div className={css.error}>{list.error}</div> : null}
         {list.loading

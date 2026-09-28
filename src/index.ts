@@ -8,7 +8,6 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from 'schemastery'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -21,16 +20,9 @@ import { SkillsManager } from './skills.ts'
 export const name = 'skills-mcp-manager'
 
 /** Services required before the surfaces can mount. `settings` is
- * deliberately absent: installSettingsSection registers it on an inner scoped
- * fiber, so a deployment without the settings surface still gets routes + MCP. */
+ * deliberately absent: the config surface is derived from this plugin's own
+ * Config schema, so a deployment without it still gets routes + MCP. */
 export const inject = ['webServer', 'tools', 'systemPrompt']
-
-/**
- * Settings namespace this plugin's config lives under. Spelled here rather
- * than imported: the browser half spells the same value and must not depend
- * on a Host package.
- */
-export const SKILLS_MCP_NAMESPACE = settingsNamespace('skills-mcp-manager')
 
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
@@ -105,14 +97,6 @@ export function apply(ctx: Context, config?: Config): void {
     // Connect enabled servers from the persisted document.
     void mcp.reload()
   }
-
-  installSettingsSection(ctx, SKILLS_MCP_NAMESPACE, Config, config ?? {}, {
-    setSource: (source) => {
-      current = source
-      sync()
-    },
-    onChange: sync,
-  })
 
   // Teardown every MCP connection when the plugin unloads.
   ctx.effect(() => () => { void mcp.dispose() }, 'skills-mcp-manager: mcp')

@@ -5,7 +5,9 @@
 本插件是其中一个独立插件：在 DeepSeek Harness Web GUI 的「设置」页新增一个独立的「技能与 MCP」页面（一级导航入口，与「插件」等并列），用于管理**技能（skills）**、**MCP 服务器**与**指令文件（AGENTS.md 家族）**三个维度。
 
 MCP 是**真实连接**：启用的服务器会通过 @deepseek-ai/dsh-mcp-client 真正连上，并把工具注册为 mcp__<server>__<tool>；启用 / 禁用会实际连接 / 断开。
-<img width="620" alt="技能与 MCP · Skills 技能" src="docs/screenshot.webp" />
+
+面板顶部始终显示**当前生效的项目目录及其来源**（`当前会话` / `已选会话` / `首个工作区` / `手动指定`）；
+识别不准时可以点「选择目录…」固定一个项目目录（本机保存），或点「恢复自动」回到跟随会话。
 
 ## 功能
 
@@ -20,21 +22,19 @@ MCP 是**真实连接**：启用的服务器会通过 @deepseek-ai/dsh-mcp-clien
 
 ### MCP 服务
 
-<img width="620" alt="技能与 MCP · MCP 服务" src="docs/screenshot-mcp.webp" />
-
 - 表单或 JSON 两种方式新建服务器（stdio 的 command/args/env/cwd，或 streamable-http 的 url/headers）。
 - 测试连接：一键真实连接探测。
 - 启用 / 禁用：真正连接 / 断开，状态实时显示（连接中 / 运行中 / 失败 / 已停止）。
 - 名称搜索、编辑、删除（两步确认）。
-- 配置持久化到 ~/.dsh/mcp.json。
+- 配置持久化到 `$DSH_HOME/mcp.json`（未设置 `DSH_HOME` 时回落 `~/.dsh/mcp.json`）。
 
 ### 指令文件
-
-<img width="620" alt="技能与 MCP · 指令文件" src="docs/screenshot-instructions.webp" />
 
 - 列出 DSH 每轮读进上下文的规则文件，按 **用户级 / 项目级** 分组：用户级只有 `~/.dsh/AGENTS.md`
   （这一级是硬编码单名，同级其它名字不读）；项目级是 `.git` 项目根到当前工作目录**每一级**的
   `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md`。
+  向上找不到 `.git` 时项目根就是**会话目录本身**（与内核 `dsh-agent-instructions` 一致），
+  不会把盘根到会话之间的每一级目录都列出来。
 - 查看 / 编辑 / 新建 / 删除；缺失的席位显示「未创建」并可一键新建，已存在的显示字节数与「会被读取」徽标。
 - **没有启用开关**（有意为之）：DSH 按**文件名**选取，改名不是开关而是语义变更，所以这里只做文件本身的操作。
 - 安全边界：只能操作上表枚举出的席位（越界路径一律拒绝），正文上限 512 KiB；超过 1 MB 的文件标 ⚠（DSH 会忽略它）。
@@ -55,7 +55,7 @@ MCP 是**真实连接**：启用的服务器会通过 @deepseek-ai/dsh-mcp-clien
 
 需要锁定版本时在末尾加 tag：
 
-    dsh plugin --profile web add github:SunlitCrack/dsh-skills-mcp-manager#v0.3.0
+    dsh plugin --profile web add github:SunlitCrack/dsh-skills-mcp-manager#v0.3.3
 
 ### 方式二：从源码构建后链接（改代码 / 开发调试）
 

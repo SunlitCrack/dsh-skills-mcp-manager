@@ -10,7 +10,7 @@
     "url": "https://github.com/SunlitCrack/dsh-skills-mcp-manager/issues"
   },
   "description": "Skills, MCP and instruction-file manager for the dsh web GUI: browse/enable/import/delete skills across project and user roots, manage MCP servers with a REAL connection through @deepseek-ai/dsh-mcp-client (enabled servers connect and register their tools on ctx.tools; enable/disable actually connects/disconnects), and read/edit/create/delete the AGENTS.md-family files the harness reads every turn. Hot-pluggable — mounted via a profile bundle patch + node_modules symlink, no dsh source changes.",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "keywords": [
     "dsh",
     "deepseek-harness",

@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 
 /** Basenames the harness reads in a project directory (both are read if present). */
 export const INSTRUCTION_FILES: readonly string[] = ['AGENTS.md', 'CLAUDE.md']
@@ -75,19 +75,53 @@ function dshHomeDir(): string {
   return process.env.DSH_HOME || join(homedir(), '.dsh')
 }
 
+/** One resolved project scope and whether a marker decided it. */
+export interface ProjectScope {
+  /** Project root: the marker directory, or `cwd` itself when no marker exists. */
+  root: string
+  /** True when one of {@link PROJECT_ROOT_MARKERS} was found on the way up. */
+  markerFound: boolean
+}
+
+/**
+ * Walk up from `cwd` to the nearest project-root marker — the harness rule.
+ *
+ * When nothing is found all the way up, the harness takes **cwd itself** as the
+ * project root (`dsh-agent-instructions`: "the discovered project root, or `cwd`
+ * when no marker exists"), so a session outside any checkout reads only its own
+ * directory. Returning the filesystem root instead would make the panel list
+ * every ancestor directory up to the drive root — the bug this replaces.
+ * @param cwd - absolute session working directory.
+ * @returns the resolved scope and whether a marker decided it.
+ */
+export function resolveProjectScope(cwd: string): ProjectScope {
+  const start = resolve(cwd)
+  let dir = start
+  for (;;) {
+    for (const marker of PROJECT_ROOT_MARKERS) if (existsSync(join(dir, marker))) return { root: dir, markerFound: true }
+    const parent = dirname(dir)
+    if (parent === dir) return { root: start, markerFound: false }
+    dir = parent
+  }
+}
+
 /**
  * Walk up from `cwd` to the nearest project-root marker (the harness rule).
  * @param cwd - absolute session working directory.
- * @returns the project root, or the filesystem root when no marker exists.
+ * @returns the project root, or `cwd` when no marker exists.
  */
 export function findProjectRoot(cwd: string): string {
-  let dir = resolve(cwd)
-  for (;;) {
-    for (const marker of PROJECT_ROOT_MARKERS) if (existsSync(join(dir, marker))) return dir
-    const parent = dirname(dir)
-    if (parent === dir) return dir
-    dir = parent
-  }
+  return resolveProjectScope(cwd).root
+}
+
+/**
+ * The scope a panel request resolved for one session directory.
+ * @param cwd - session working directory; empty or blank means "no project scope".
+ * @returns the scope, or undefined when there is no cwd to resolve.
+ */
+export function projectScopeOf(cwd?: string): ProjectScope | undefined {
+  const workspace = (cwd ?? '').trim()
+  return workspace === '' ? undefined : resolveProjectScope(workspace)
 }
 
 /**
@@ -145,7 +179,9 @@ export function listInstructions(cwd?: string): InstructionSlot[] {
   if (workspace === '') return slots
   const root = findProjectRoot(workspace)
   for (const dir of ancestorChain(root, workspace)) {
-    const relativeDir = dir === root ? '' : dir.slice(root.length + 1).split('\\').join('/')
+    // relative() instead of slice(root.length + 1): a drive root ("C:\", 3 chars)
+    // made the old arithmetic eat one character of the first component ("sers").
+    const relativeDir = dir === root ? '' : relative(root, dir).split('\\').join('/')
     const displayDir = relativeDir === '' ? '' : `${relativeDir}/`
     for (const name of [...INSTRUCTION_FILES, ...LOCAL_INSTRUCTION_FILES]) {
       slots.push(describe('project', relativeDir, `${displayDir}${name}`, name, join(dir, name)))

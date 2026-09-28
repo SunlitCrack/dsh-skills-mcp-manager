@@ -53,12 +53,37 @@ export interface InstructionDetail {
     /** True when the body was clipped to the edit cap. */
     truncated: boolean;
 }
+/** One resolved project scope and whether a marker decided it. */
+export interface ProjectScope {
+    /** Project root: the marker directory, or `cwd` itself when no marker exists. */
+    root: string;
+    /** True when one of {@link PROJECT_ROOT_MARKERS} was found on the way up. */
+    markerFound: boolean;
+}
+/**
+ * Walk up from `cwd` to the nearest project-root marker — the harness rule.
+ *
+ * When nothing is found all the way up, the harness takes **cwd itself** as the
+ * project root (`dsh-agent-instructions`: "the discovered project root, or `cwd`
+ * when no marker exists"), so a session outside any checkout reads only its own
+ * directory. Returning the filesystem root instead would make the panel list
+ * every ancestor directory up to the drive root — the bug this replaces.
+ * @param cwd - absolute session working directory.
+ * @returns the resolved scope and whether a marker decided it.
+ */
+export declare function resolveProjectScope(cwd: string): ProjectScope;
 /**
  * Walk up from `cwd` to the nearest project-root marker (the harness rule).
  * @param cwd - absolute session working directory.
- * @returns the project root, or the filesystem root when no marker exists.
+ * @returns the project root, or `cwd` when no marker exists.
  */
 export declare function findProjectRoot(cwd: string): string;
+/**
+ * The scope a panel request resolved for one session directory.
+ * @param cwd - session working directory; empty or blank means "no project scope".
+ * @returns the scope, or undefined when there is no cwd to resolve.
+ */
+export declare function projectScopeOf(cwd?: string): ProjectScope | undefined;
 /**
  * List `root → cwd`, inclusive — the harness's model-precedence order
  * (broadest first, most specific last).

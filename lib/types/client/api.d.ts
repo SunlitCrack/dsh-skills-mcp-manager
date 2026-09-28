@@ -7,9 +7,18 @@ import type { ImportItem, ImportResult, InstructionDetail, InstructionSlot, McpS
 export declare class SkillsMcpApiError extends Error {
     constructor(message: string);
 }
+/** Resolved project scope reported alongside a listing. */
+export interface ProjectScopeInfo {
+    /** Project root the panel resolved: the `.git` directory, or the session cwd itself. */
+    projectRoot: string;
+    /** True when a `.git` marker (not the cwd fallback) decided the root. */
+    markerFound: boolean;
+}
 /** The browser half's only data entry point. */
 export declare class SkillsMcpApi {
-    listSkills(cwd: string): Promise<SkillSummary[]>;
+    listSkills(cwd: string): Promise<{
+        items: SkillSummary[];
+    } & ProjectScopeInfo>;
     readSkill(path: string): Promise<SkillDetail>;
     toggleSkill(path: string, enabled: boolean): Promise<void>;
     deleteSkill(path: string, kind: 'bundle' | 'file'): Promise<void>;
@@ -24,7 +33,9 @@ export declare class SkillsMcpApi {
         error?: string;
     }>;
     /** Every instruction-file seat the harness would consider for this workspace. */
-    listInstructions(cwd: string): Promise<InstructionSlot[]>;
+    listInstructions(cwd: string): Promise<{
+        slots: InstructionSlot[];
+    } & ProjectScopeInfo>;
     readInstruction(path: string, cwd: string): Promise<InstructionDetail>;
     saveInstruction(path: string, content: string, cwd: string): Promise<InstructionSlot>;
     deleteInstruction(path: string, cwd: string): Promise<void>;

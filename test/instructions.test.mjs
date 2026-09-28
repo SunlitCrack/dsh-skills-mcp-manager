@@ -20,6 +20,7 @@ import {
   findProjectRoot,
   listInstructions,
   readInstruction,
+  resolveProjectScope,
   resolveSlot,
   writeInstruction,
 } from '../lib/instructions.js'
@@ -40,6 +41,25 @@ test('项目根定位：向上找最近的 .git', () => {
     assert.equal(findProjectRoot(root), root)
   } finally {
     rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('无 .git 标记时项目根 = cwd（内核规则，绝不退化成盘根）', () => {
+  const base = mkdtempSync(join(tmpdir(), 'dsh-nomarker-'))
+  const deep = join(base, 'a', 'b')
+  mkdirSync(deep, { recursive: true })
+  try {
+    assert.equal(findProjectRoot(deep), deep)
+    const scope = resolveProjectScope(deep)
+    assert.equal(scope.root, deep)
+    assert.equal(scope.markerFound, false)
+
+    const project = listInstructions(deep).filter((s) => s.scope === 'project')
+    assert.equal(project.length, 4, '只有会话目录这一层 × 4 个候选名')
+    assert.ok(project.every((s) => s.dir === ''), '不应出现任何祖先目录席位')
+    assert.ok(project.every((s) => !s.displayPath.includes('/')), '显示路径不应带祖先目录前缀')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
   }
 })
 

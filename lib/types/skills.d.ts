@@ -17,7 +17,16 @@ export interface SkillRoots {
 }
 /** Resolve (and materialize) the user-level skill roots. */
 export declare function getRoots(): SkillRoots;
-/** Walk up from cwd to the nearest .git directory (the project root). */
+/**
+ * Walk up from cwd to the nearest .git directory (the project root).
+ *
+ * Mirrors `@deepseek-ai/dsh-skill-filesystem`: when no marker exists all the way
+ * up, the kernel takes **cwd itself** as the project root. Returning the drive
+ * root instead pointed the project skill roots at `<drive>\.dsh\skills`, so a
+ * session inside a project never saw that project's skills.
+ * @param cwd - session working directory; defaults to the host process cwd.
+ * @returns the project root, or `cwd` when no marker exists.
+ */
 export declare function findProjectRoot(cwd?: string): string;
 export declare class SkillsManager {
     /** Scan one skill root directory into SkillSummary records. */

@@ -11,15 +11,9 @@ import z from 'schemastery';
 /** Stable cordis plugin name. */
 export declare const name = "skills-mcp-manager";
 /** Services required before the surfaces can mount. `settings` is
- * deliberately absent: installSettingsSection registers it on an inner scoped
- * fiber, so a deployment without the settings surface still gets routes + MCP. */
+ * deliberately absent: the config surface is derived from this plugin's own
+ * Config schema, so a deployment without it still gets routes + MCP. */
 export declare const inject: string[];
-/**
- * Settings namespace this plugin's config lives under. Spelled here rather
- * than imported: the browser half spells the same value and must not depend
- * on a Host package.
- */
-export declare const SKILLS_MCP_NAMESPACE: any;
 /** Plugin config, validated by the same-named schemastery schema. */
 export interface Config {
     /** Master switch (routes, MCP connections, prompt section). */

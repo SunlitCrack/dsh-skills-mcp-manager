@@ -10,7 +10,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { McpManager, normalizeMcpServer, readMcpConfig, validateMcpServer, writeMcpConfig } from './mcp.ts'
-import { deleteInstruction, listInstructions, readInstruction, writeInstruction } from './instructions.ts'
+import { deleteInstruction, listInstructions, projectScopeOf, readInstruction, writeInstruction } from './instructions.ts'
 import { SkillsManager } from './skills.ts'
 import { SKILLS_MCP_API } from './protocol.ts'
 import type { McpServerConfig } from './protocol.ts'
@@ -109,7 +109,13 @@ export function makeRoutes(deps: RoutesDeps): { routes: WebRoute[] } {
     routes: [
       // ── skills ───────────────────────────────────────────────────────────
       handle('GET', SKILLS_MCP_API.skills, async (_req, res, _body, url) => {
-        writeJson(res, 200, ok({ items: skills.listSkills(queryParam(url, 'cwd')) }))
+        const cwd = queryParam(url, 'cwd')
+        const scope = projectScopeOf(cwd)
+        writeJson(res, 200, ok({
+          items: skills.listSkills(cwd),
+          projectRoot: scope?.root,
+          markerFound: scope?.markerFound ?? false,
+        }))
       }),
 
       handle('POST', SKILLS_MCP_API.skillRead, async (_req, res, body, _url) => {
@@ -205,7 +211,13 @@ export function makeRoutes(deps: RoutesDeps): { routes: WebRoute[] } {
 
       // ── instruction files ────────────────────────────────────────────────
       handle('GET', SKILLS_MCP_API.instructions, async (_req, res, _body, url) => {
-        writeJson(res, 200, ok({ slots: listInstructions(queryParam(url, 'cwd')) }))
+        const cwd = queryParam(url, 'cwd')
+        const scope = projectScopeOf(cwd)
+        writeJson(res, 200, ok({
+          slots: listInstructions(cwd),
+          projectRoot: scope?.root,
+          markerFound: scope?.markerFound ?? false,
+        }))
       }),
 
       handle('POST', SKILLS_MCP_API.instructionRead, async (_req, res, body, _url) => {

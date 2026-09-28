@@ -38,16 +38,26 @@ export function getRoots(): SkillRoots {
   return { home, dshHome, agentsHome, userSkillsDir, agentsSkillsDir: join(agentsHome, 'skills') }
 }
 
-/** Walk up from cwd to the nearest .git directory (the project root). */
+/**
+ * Walk up from cwd to the nearest .git directory (the project root).
+ *
+ * Mirrors `@deepseek-ai/dsh-skill-filesystem`: when no marker exists all the way
+ * up, the kernel takes **cwd itself** as the project root. Returning the drive
+ * root instead pointed the project skill roots at `<drive>\.dsh\skills`, so a
+ * session inside a project never saw that project's skills.
+ * @param cwd - session working directory; defaults to the host process cwd.
+ * @returns the project root, or `cwd` when no marker exists.
+ */
 export function findProjectRoot(cwd?: string): string {
-  let dir = resolve(cwd ?? process.cwd())
+  const start = resolve(cwd ?? process.cwd())
+  let dir = start
   for (let i = 0; i < 100; i++) {
-    if (existsSync(join(dir, '.git'))) break
+    if (existsSync(join(dir, '.git'))) return dir
     const parent = dirname(dir)
-    if (parent === dir) break
+    if (parent === dir) return start
     dir = parent
   }
-  return dir
+  return start
 }
 
 function levelOf(source: SkillSource): SkillLevel {
