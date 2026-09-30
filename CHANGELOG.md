@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-12
+
+适配 **DeepSeek Harness 0.2.0-rc.2（官方壳）**，并入此前只留在本地分支出的一轮改动。
+
+### 变更
+
+- **peer 范围补 0.2.x**：`peerDependencies` / `devDependencies` 里 11 个 `@deepseek-ai/dsh-*`
+  依赖由 `^0.1.1-rc.2` 扩为 `^0.1.1-rc.2 || ^0.2.0-rc.1`。此前范围上界不含 0.2.x，
+  官方壳升到 0.2.0-rc.2 后会被插件管理器的 `incompatible-version` 门禁拦下
+  （面板显示「异常」，要求对精确版本逐条豁免才肯加载）。修正后无需任何豁免。
+- **`scripts/fix-host-deps.mjs` 支持官方壳布局**：内核位置探测新增
+  `resources/app/dsh/node_modules`（官方壳把内核封在 `app.asar` 的 `dsh/node_modules` 下，
+  dsh-purge 解开 `resources/app` 后存在），旧布局判断不变。
+
+### 说明
+
+0.3.4 那侧只有技能列表分组顺序，官方壳适配当时停在本地分支未发布；
+只装 0.3.4 的话，在 0.2.x 官方壳上会被 `incompatible-version` 拦下。0.3.5 起两者都在。
+
+### 验证（本机官方壳 0.2.0-rc.2）
+
+- 插件管理器 `listBundles` 不再报 `incompatible-version`，条目正常组合；
+- 宿主半加载后 `/api/dsh-skills-mcp/skills`、`/api/dsh-skills-mcp/mcp` 返回 200，
+  `obsidian` MCP 服务器自动恢复 `status: running`；
+- `node scripts/fix-host-deps.mjs --check` 通过（两条 junction 指向官方内核 0.2.0-rc.2）。
+
 ## [0.3.4] - 2026-10-11
 
 ### 变更
