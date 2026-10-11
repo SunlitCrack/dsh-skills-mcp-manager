@@ -203,7 +203,7 @@ export class SkillsManager {
       }
     }
     items.sort((a, b) => {
-      if (a.level !== b.level) return a.level === 'project' ? -1 : 1
+      if (a.level !== b.level) return a.level === 'user' ? -1 : 1
       return a.name < b.name ? -1 : a.name > b.name ? 1 : 0
     })
     return items

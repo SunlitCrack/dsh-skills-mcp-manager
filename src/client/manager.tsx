@@ -233,7 +233,8 @@ function SkillsPanel(props: { cwd: string; refreshKey: number; onChanged: () => 
   filtered.forEach((it) => { (byLevel[it.level] = byLevel[it.level] || []).push(it) })
 
   const rows: ReactNode[] = []
-  ;[['project', '项目级'], ['user', '用户级']].forEach(([level, label]) => {
+  // 用户级是全局兜底，固定排在项目级之前。
+  ;[['user', '用户级'], ['project', '项目级']].forEach(([level, label]) => {
     const gs = byLevel[level as string] || []
     if (gs.length === 0) return
     rows.push(<div key={'g-' + level} className={css.groupH}>{label} ({gs.length})</div>)
