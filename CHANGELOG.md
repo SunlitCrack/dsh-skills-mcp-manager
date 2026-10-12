@@ -139,6 +139,7 @@
 - MCP：表单 / JSON 新建服务器、测试连接、启停（真实连接与断开）、编辑删除，配置存 `~/.dsh/mcp.json`。
 - 通过 `@deepseek-ai/dsh-mcp-client` 挂载真实连接，工具注册为 `mcp__<server>__<tool>`。
 
-[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.5
 [0.3.4]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.4
 [0.3.0]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.0
