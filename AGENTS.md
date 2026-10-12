@@ -34,9 +34,11 @@ pnpm test           # node --test test/ —— 指令文件维度的测试
 ## 两个必须知道的坑
 
 1. **`link:` 安装的目录里不要留会被内核依赖遮蔽的 `node_modules`。**
-   宿主解析 `@deepseek-ai/dsh-mcp-client`、`@deepseek-ai/dsh-settings` 这类裸导入时会**先命中插件目录自己的 `node_modules`**；
+   宿主解析 `@deepseek-ai/dsh-mcp-client` 这类裸导入时会**先命中插件目录自己的 `node_modules`**；
    若那里存在与内核不同版本的副本，宿主可能加载不匹配的实现而**启动失败**。
    本仓库的 `scripts/fix-host-deps.mjs` 就是为此而生：`--check` 只读体检，修复只做"改名留底 + 建链接"（**从不删除**），
+   守护清单按 **`lib/index.js` 的真实运行时导入**维护（当前只有 `@deepseek-ai/dsh-mcp-client`；`import type` 一律不算，
+   如 `dsh-settings` 自内核 0.10.0 起已零引用而移出清单），
    内核位置依次取 `DSH_DESKTOP_KERNEL` → `DSH_DESKTOP_ROOT` → 已有链接指向的内核 → 常见安装位置（`D:\DeepSeek Harness` 等），
    所以不设环境变量也能跑；`.pnpm` 包管理器存储不会被误当内核。更稳的做法是**构建与安装分离**：在别处构建，只把 `lib/` 拷回去。
 2. **`@deepseek-ai/*` 一律只声明为 `peerDependencies`。**

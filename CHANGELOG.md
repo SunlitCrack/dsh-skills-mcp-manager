@@ -6,6 +6,28 @@
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-10-12
+
+宿主依赖守护清单收窄到真实运行时导入。
+
+### 变更
+
+- `scripts/fix-host-deps.mjs` 的 `HOST_DEPS` 由 `['dsh-mcp-client', 'dsh-settings']` 收成 `['dsh-mcp-client']`。
+  依据是**构建产物**而不是 manifest：`lib/index.js` 里唯一的值导入就是它；`dsh-settings` 的导入在内核改为
+  「设置从插件自身 Config schema 派生」（0.10.0）时就被删掉了，清单里那条属于遗留。口径写进脚本注释：
+  `import type` 一律不算（构建期擦除），只认打包后的真实 import。
+- README / AGENTS.md 同步，不再表述为「这两个条目」。
+
+### 说明
+
+- 安装目录里已存在的那条 `@deepseek-ai/dsh-settings` 内核链接不删也不动：脚本不再校验它，它仍指向内核，留着无害。
+
+### 验证
+
+- 安装副本裸跑 `--check` → 只校验 `dsh-mcp-client`，exit 0；
+- 全新目录裸跑 → 只建立 1 条 junction，再 `--check` 通过；
+- 开发树（`node_modules` 是 pnpm 副本）→ 报 1 条遮蔽、exit 1。
+
 ## [0.3.7] - 2026-10-12
 
 指令文件页签的「编辑」改成「详情」。
@@ -178,7 +200,8 @@
 - MCP：表单 / JSON 新建服务器、测试连接、启停（真实连接与断开）、编辑删除，配置存 `~/.dsh/mcp.json`。
 - 通过 `@deepseek-ai/dsh-mcp-client` 挂载真实连接，工具注册为 `mcp__<server>__<tool>`。
 
-[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.8
 [0.3.7]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.7
 [0.3.6]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.6
 [0.3.5]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.5

@@ -6,8 +6,8 @@
  * Why this exists
  * ---------------
  * When a plugin is installed as a link/copy inside a profile, a bare import
- * such as `@deepseek-ai/dsh-mcp-client` or `@deepseek-ai/dsh-settings` may
- * resolve to the plugin's OWN `node_modules` before the kernel's copy. If a
+ * such as `@deepseek-ai/dsh-mcp-client` may resolve to the plugin's OWN
+ * `node_modules` before the kernel's copy. If a
  * package manager installed a different build there (the manifest's peer range
  * usually admits an older release than the running kernel), the host loads a
  * mismatched copy and **the app can fail to boot** — e.g. a client build that
@@ -56,8 +56,14 @@ import { existsSync, mkdirSync, realpathSync, renameSync, symlinkSync } from 'no
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** Bare specifiers the host half resolves at runtime (keep in sync with lib/index.js imports). */
-const HOST_DEPS = ['dsh-mcp-client', 'dsh-settings']
+/**
+ * Bare specifiers the host half resolves at runtime (keep in sync with lib/index.js
+ * imports). Checked against the built output rather than the manifest: the only value
+ * import left there is `@deepseek-ai/dsh-mcp-client`. `dsh-settings` was dropped once
+ * the kernel started deriving plugin settings from the plugin's own Config schema
+ * (0.10.0), which removed the import this list used to protect.
+ */
+const HOST_DEPS = ['dsh-mcp-client']
 /** The scope both the plugin tree and the kernel keep those packages under. */
 const SCOPE = '@deepseek-ai'
 
