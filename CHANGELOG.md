@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-10-12
+
+前端改版：卡片行（方案 A）。功能、接口与路由一律不变，只动视觉与少量 DOM。
+
+### 变更
+
+- **行即卡片**：每行独立卡片（淡边框 + hover 微抬升），左侧 34px 类别色图标槽（技能靛蓝 / MCP 蓝 / 指令琥珀）；
+  分组头由 `用户级 (9)` 改为「组名 + 计数徽标 + 延伸线」。
+- **真开关**：技能与 MCP 的启停从「复选框 + 启用二字」换成 `button[role=switch]` 开关控件（保留 `aria-checked`）。
+- **删除降级**：默认红字弱化、hover 才给红底，让一行里只留一个视觉重点。
+- **状态 pill**：来源 / 会被读取 / 缺失 统一为 pill，附 `badgeOk / badgeDim / badgeWarn` 三态。
+- **主题无关**：强调色用 `light-dark()` 跟随深浅色、卡片填充走半透明叠加、文字统一 `currentColor` —— 宿主用哪套主题都不需要额外分支。
+- 输入框补 focus 环；详情块与等宽正文重新排版。
+
+### 说明
+
+- `slotText()` 生成图标槽文字：带点/短横的名字取前两段首字母（`AGENTS.local.md` → `AL`），普通名取前 2 字符（`k8s-fta-skill` → `K8`），中文名取首字。
+- 列表是平铺渲染（没有包裹元素），行间距用邻接选择器 `.row + .row` 给，不动 DOM 结构。
+- 宿主半 `lib/index.js` 无改动，改动全部落在客户端产物 `lib/client.js`（样式内联进 bundle）。
+- 顺手修正 README 里 0.3.7 之后的过时描述（指令文件那节仍写着「编辑」）。
+
+### 验证
+
+- `pnpm typecheck` 通过；`node --test` 12/12；产物含 `iconSlot` / `slotText` / `light-dark` / `role="switch"`。
+- 真实宿主界面已人工确认。
+
 ## [0.3.8] - 2026-10-12
 
 宿主依赖守护清单收窄到真实运行时导入。
@@ -200,7 +226,8 @@
 - MCP：表单 / JSON 新建服务器、测试连接、启停（真实连接与断开）、编辑删除，配置存 `~/.dsh/mcp.json`。
 - 通过 `@deepseek-ai/dsh-mcp-client` 挂载真实连接，工具注册为 `mcp__<server>__<tool>`。
 
-[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.9...HEAD
+[0.3.9]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.9
 [0.3.8]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.8
 [0.3.7]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.7
 [0.3.6]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.6

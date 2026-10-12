@@ -21,6 +21,37 @@ function sourceLabel(source: string): string {
   return source
 }
 
+/**
+ * Two-letter slot text for a row's icon badge. Dotted / dashed names give the
+ * initials of their first two segments (`AGENTS.local.md` → `AL`), a plain name
+ * gives its first two characters (`k8s-fta-skill` → `K8`), and a CJK name gives
+ * its first glyph.
+ */
+function slotText(name: string): string {
+  const base = name.replace(/\.md$/i, '').trim()
+  if (base === '') return '·'
+  if (!/^[\x20-\x7e]/.test(base)) return base.slice(0, 1)
+  const parts = base.split(/[.\-_\s]+/).filter(Boolean)
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return base.slice(0, 2).toUpperCase()
+}
+
+/** Shared switch control (replaces the checkbox + text label). */
+function Switch(props: { on: boolean; busy?: boolean; title: string; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.on}
+      aria-label={props.title}
+      title={props.title}
+      disabled={props.busy}
+      className={`${css.switch} ${props.on ? css.switchOn : ''}`}
+      onClick={props.onToggle}
+    />
+  )
+}
+
 function parseKv(text: string): Record<string, string> {
   const obj: Record<string, string> = {}
   if (!text) return obj
@@ -237,20 +268,24 @@ function SkillsPanel(props: { cwd: string; refreshKey: number; onChanged: () => 
   ;[['user', '用户级'], ['project', '项目级']].forEach(([level, label]) => {
     const gs = byLevel[level as string] || []
     if (gs.length === 0) return
-    rows.push(<div key={'g-' + level} className={css.groupH}>{label} ({gs.length})</div>)
+    rows.push(
+      <div key={'g-' + level} className={css.group}>
+        <span className={css.groupName}>{label}</span>
+        <span className={css.count}>{gs.length}</span>
+        <span className={css.groupLine} />
+      </div>,
+    )
     gs.forEach((skill) => {
       const isBusy = busy === skill.path
       rows.push(
         <div key={skill.path} className={css.row}>
+          <span className={`${css.iconSlot} ${css.icoSkill}`}>{slotText(skill.name)}</span>
           <div className={css.main} style={{ cursor: 'pointer' }} onClick={() => { view(skill) }}>
             <div className={css.name}>{skill.name}{skill.enabled ? '' : ' （已禁用）'}</div>
             {skill.description ? <div className={css.desc}>{skill.description}</div> : null}
           </div>
           <span className={css.badge}>{sourceLabel(skill.source)}</span>
-          <label className={css.switch}>
-            <input type="checkbox" checked={skill.enabled} disabled={isBusy} onChange={() => { toggle(skill) }} />
-            <span>{skill.enabled ? '启用' : '禁用'}</span>
-          </label>
+          <Switch on={skill.enabled} busy={isBusy} title={skill.enabled ? '点击禁用' : '点击启用'} onToggle={() => { toggle(skill) }} />
           <button type="button" className={css.btn} onClick={() => { view(skill) }}>{detailName === skill.path ? '收起' : '详情'}</button>
           <button type="button" className={`${css.btn} ${css.btnDanger}`} disabled={isBusy} onClick={() => { remove(skill) }}>{confirmDel === skill.path ? '确认删除?' : '删除'}</button>
         </div>,
@@ -437,15 +472,13 @@ function McpPanel(props: { refreshKey: number; onChanged: () => void }) {
             ? <div>{list.servers.length === 0 ? '尚未配置任何 MCP 服务器' : '没有匹配的服务器'}</div>
             : filteredServers.map((s) => (
                 <div key={s.name} className={css.row}>
+                  <span className={`${css.iconSlot} ${css.icoMcp}`}>{slotText(s.name)}</span>
                   <div className={css.main}>
                     <div className={css.name}>{s.name}{s.enabled ? '' : ' （已禁用）'} <span className={css.status}>{statusLabel[s.status] || s.status}</span></div>
                     <div className={css.desc}>{s.transport}{s.transport === 'stdio' ? ' · ' + (s.command || '') : ' · ' + (s.url || '')}</div>
                     {s.error ? <div className={css.error}>{s.error}</div> : null}
                   </div>
-                  <label className={css.switch}>
-                    <input type="checkbox" checked={s.enabled} onChange={() => { toggle(s) }} />
-                    <span>{s.enabled ? '启用' : '禁用'}</span>
-                  </label>
+                  <Switch on={s.enabled === true} title={s.enabled ? '点击禁用' : '点击启用'} onToggle={() => { toggle(s) }} />
                   <button type="button" className={css.btn} onClick={() => { edit(s) }}>编辑</button>
                   <button type="button" className={`${css.btn} ${css.btnDanger}`} onClick={() => { remove(s) }}>{confirmDel === s.name ? '确认删除?' : '删除'}</button>
                 </div>
@@ -619,13 +652,18 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
             ? <div>{props.cwd ? '没有可管理的指令文件' : '未识别项目工作区，仅列出用户级'}</div>
             : groups.map((group) => (
                 <div key={group.key} className={css.section}>
-                  <div className={css.groupH}>{group.label}</div>
+                  <div className={css.group}>
+                    <span className={css.groupName}>{group.label}</span>
+                    <span className={css.count}>{group.slots.length}</span>
+                    <span className={css.groupLine} />
+                  </div>
                   {group.slots.map((slot) => {
                     const isBusy = busy === slot.path
                     const opened = viewing !== null && viewing.path === slot.path
                     return (
                       <Fragment key={slot.path}>
                         <div className={css.row}>
+                          <span className={`${css.iconSlot} ${css.icoIns}`}>{slotText(slot.name)}</span>
                           <div className={css.main}>
                             <div className={css.name}>
                               {slot.name}

@@ -1,12 +1,39 @@
-/* Skills & MCP manager — settings card + management UI. Theme-agnostic:
-   inherits the shell's text color and uses translucent gray fills. */
+/* Skills & MCP manager — settings card + management UI.
+ *
+ * 视觉：卡片行（方案 A）—— 行即卡片（淡边框 + hover 微抬升）、类别色图标槽、
+ * 真开关、pill 状态、分组计数 + 延伸线。
+ *
+ * 主题：不写死底色。强调色用 light-dark() 跟随深浅色，卡片填充一律半透明叠加
+ * （在浅底上呈白卡、在深底上呈淡亮层），文字统一 currentColor —— 所以宿主用哪套
+ * 主题都不需要额外分支。子容器声明 color-scheme，light-dark() 才有依据。 */
 
+:global(:root) {
+  --smcp-accent: light-dark(#5b5bd6, #8b8bf0);
+  --smcp-accent-soft: light-dark(rgba(91, 91, 214, 0.1), rgba(139, 139, 240, 0.16));
+  --smcp-blue: light-dark(#2f6fed, #7aa2ff);
+  --smcp-blue-soft: light-dark(rgba(47, 111, 237, 0.12), rgba(122, 162, 255, 0.16));
+  --smcp-amber: light-dark(#b3701a, #e0a94a);
+  --smcp-amber-soft: light-dark(rgba(179, 112, 26, 0.12), rgba(224, 169, 74, 0.16));
+  --smcp-ok: light-dark(#2f9e63, #5bd08a);
+  --smcp-ok-soft: light-dark(rgba(47, 158, 99, 0.12), rgba(91, 208, 138, 0.16));
+  --smcp-danger: light-dark(#d93a40, #ff6b6f);
+  --smcp-danger-soft: light-dark(rgba(217, 58, 64, 0.1), rgba(255, 107, 111, 0.16));
+  --smcp-line: light-dark(rgba(20, 20, 30, 0.1), rgba(255, 255, 255, 0.12));
+  --smcp-line-soft: light-dark(rgba(20, 20, 30, 0.06), rgba(255, 255, 255, 0.07));
+  --smcp-line-strong: light-dark(rgba(20, 20, 30, 0.18), rgba(255, 255, 255, 0.2));
+  --smcp-fill: light-dark(rgba(20, 20, 30, 0.025), rgba(255, 255, 255, 0.035));
+  --smcp-fill-hover: light-dark(rgba(20, 20, 30, 0.05), rgba(255, 255, 255, 0.06));
+  --smcp-radius: 11px;
+}
+
+/* ── settings card shell ─────────────────────────────────────────────── */
 .card {
-  border: 1px solid rgba(128, 128, 128, 0.28);
-  background: rgba(128, 128, 128, 0.05);
-  border-radius: 8px;
+  border: 1px solid var(--smcp-line);
+  background: var(--smcp-fill);
+  border-radius: 14px;
   list-style: none;
   overflow: hidden;
+  color-scheme: light dark;
 }
 
 .header {
@@ -21,16 +48,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 13px 16px;
 }
-.header:hover { background: rgba(128, 128, 128, 0.08); }
+.header:hover { background: var(--smcp-fill-hover); }
 
-.headText {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
+.headText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
 .name {
   color: inherit;
@@ -41,7 +63,7 @@
 }
 
 .description {
-  color: rgba(128, 128, 128, 1);
+  color: color-mix(in srgb, currentColor 62%, transparent);
   font-size: 12px;
   line-height: 1.35;
   overflow: hidden;
@@ -50,7 +72,7 @@
 }
 
 .chevron, .chevronOpen {
-  color: rgba(128, 128, 128, 1);
+  color: color-mix(in srgb, currentColor 55%, transparent);
   flex: none;
   font-size: 13px;
   transition: transform 0.12s;
@@ -58,106 +80,254 @@
 .chevronOpen { transform: rotate(180deg); }
 
 .body {
-  border-top: 1px solid rgba(128, 128, 128, 0.2);
-  padding: 14px;
+  border-top: 1px solid var(--smcp-line-soft);
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  color-scheme: light dark;
 }
 
-.notExposed, .readOnly, .note { color: rgba(128, 128, 128, 1); font-size: 12px; }
-.error { color: #e5534b; font-size: 12px; }
+.notExposed, .readOnly { color: color-mix(in srgb, currentColor 62%, transparent); font-size: 12px; }
+.note { color: color-mix(in srgb, currentColor 62%, transparent); font-size: 12px; }
+.error { color: var(--smcp-danger); font-size: 12px; }
 
-/* config toggles */
+/* ── config toggles (card-level settings) ───────────────────────────── */
 .config { display: flex; flex-direction: column; gap: 10px; }
 .field { display: flex; flex-direction: column; gap: 3px; }
 .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.toggle input { cursor: pointer; }
+.toggle input { cursor: pointer; accent-color: var(--smcp-accent); }
 .toggleLabel { font-size: 13px; font-weight: 600; }
-.hint { color: rgba(128, 128, 128, 1); font-size: 12px; margin: 0; }
+.hint { color: color-mix(in srgb, currentColor 62%, transparent); font-size: 12px; margin: 0; }
 
-/* settings page (first-class section) */
-.sectionPage { display: flex; flex-direction: column; gap: 12px; }
-.pageHeading { margin: 0; font-size: 16px; font-weight: 600; }
-.pageIntro { margin: 0; color: rgba(128, 128, 128, 1); font-size: 13px; }
+/* ── settings page (first-class section) ────────────────────────────── */
+.sectionPage { display: flex; flex-direction: column; gap: 12px; color-scheme: light dark; }
+.pageHeading { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
+.pageIntro { margin: 0; color: color-mix(in srgb, currentColor 62%, transparent); font-size: 12.5px; }
 
-/* manager */
-.manager { display: flex; flex-direction: column; gap: 14px; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
+/* ── manager chrome ─────────────────────────────────────────────────── */
+.manager { display: flex; flex-direction: column; gap: 14px; color-scheme: light dark; }
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--smcp-line);
+  border-radius: 12px;
+  background: var(--smcp-fill);
+  width: fit-content;
+}
 .tab, .tabActive {
   background: none;
   border: none;
-  padding: 8px 14px;
+  padding: 6px 16px;
   cursor: pointer;
   font: inherit;
-  color: inherit;
-  border-bottom: 2px solid transparent;
-  opacity: 0.7;
+  font-size: 13px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  border-radius: 9px;
+  transition: background 0.12s, color 0.12s;
 }
-.tabActive { opacity: 1; border-bottom-color: currentColor; font-weight: 600; }
+.tab:hover { color: inherit; }
+.tabActive {
+  background: light-dark(#fff, rgba(255, 255, 255, 0.1));
+  color: inherit;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(20, 20, 30, 0.1);
+}
+
 .disabledBanner {
   margin: 0;
-  padding: 8px 10px;
-  border: 1px solid rgba(229, 83, 75, 0.4);
-  border-radius: 8px;
-  color: #e5534b;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--smcp-danger) 45%, transparent);
+  border-radius: 10px;
+  color: var(--smcp-danger);
   font-size: 12px;
 }
 
 .panel { display: flex; flex-direction: column; gap: 20px; }
 .section { display: flex; flex-direction: column; gap: 10px; }
-.h { margin: 0; font-size: 14px; font-weight: 600; }
-.hGrow { margin: 0; font-size: 14px; font-weight: 600; flex: 1 1 auto; }
-.groupH { margin: 10px 0 0; font-size: 13px; font-weight: 600; }
+.h { margin: 0; font-size: 14px; font-weight: 650; }
+.hGrow { margin: 0; font-size: 14px; font-weight: 650; flex: 1 1 auto; }
 .inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+/* group header: name + count + rule */
+.group { display: flex; align-items: center; gap: 9px; margin: 12px 0 2px; }
+.groupName {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  letter-spacing: 0.03em;
+}
+.count {
+  font-size: 11px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  background: var(--smcp-fill);
+  border: 1px solid var(--smcp-line-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.groupLine { flex: 1 1 auto; height: 1px; background: var(--smcp-line-soft); }
+/* legacy alias kept so any remaining call site still renders as a header */
+.groupH { margin: 10px 0 0; font-size: 13px; font-weight: 650; }
+
+/* ── rows (方案 A: each row is its own card) ─────────────────────────── */
+.rowList { display: flex; flex-direction: column; gap: 8px; }
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  border-radius: 8px;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--smcp-line);
+  border-radius: var(--smcp-radius);
+  background: var(--smcp-fill);
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s, transform 0.12s;
 }
+.row:hover {
+  border-color: var(--smcp-line-strong);
+  box-shadow: 0 2px 8px light-dark(rgba(20, 20, 30, 0.07), rgba(0, 0, 0, 0.35));
+  transform: translateY(-1px);
+}
+/* rows render as a flat list (no wrapper element), so space them by adjacency */
+.row + .row, .row + .detail, .detail + .row { margin-top: 8px; }
 .main { flex: 1 1 auto; min-width: 0; }
-.desc { color: rgba(128, 128, 128, 1); font-size: 12px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.badge { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: rgba(128, 128, 128, 0.15); white-space: nowrap; }
-.status { font-size: 11px; color: rgba(128, 128, 128, 1); }
+.desc {
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  font-size: 12px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.switch { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
-.switch input { cursor: pointer; }
+/* two-letter category slot */
+.iconSlot {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.icoSkill { background: var(--smcp-accent-soft); color: var(--smcp-accent); }
+.icoMcp { background: var(--smcp-blue-soft); color: var(--smcp-blue); }
+.icoIns { background: var(--smcp-amber-soft); color: var(--smcp-amber); }
 
+.badge {
+  font-size: 11px;
+  padding: 2.5px 9px;
+  border-radius: 999px;
+  background: var(--smcp-fill);
+  border: 1px solid var(--smcp-line-soft);
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  white-space: nowrap;
+}
+.badgeOk {
+  background: var(--smcp-ok-soft);
+  border-color: transparent;
+  color: var(--smcp-ok);
+  font-weight: 600;
+}
+.badgeDim { background: transparent; border-style: dashed; }
+.badgeWarn {
+  background: var(--smcp-amber-soft);
+  border-color: transparent;
+  color: var(--smcp-amber);
+  font-weight: 600;
+}
+.status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--smcp-fill);
+  border: 1px solid var(--smcp-line-soft);
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  white-space: nowrap;
+}
+
+/* real switch (was a checkbox + label) */
+.switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: color-mix(in srgb, currentColor 32%, transparent);
+  transition: background 0.15s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: light-dark(#fff, #f2f2f5);
+  transition: left 0.15s;
+}
+.switchOn { background: var(--smcp-accent); }
+.switchOn::after { left: 18px; }
+.switch:disabled { opacity: 0.5; cursor: default; }
+
+/* ── buttons ────────────────────────────────────────────────────────── */
 .btn {
   font: inherit;
   font-size: 12px;
-  padding: 4px 10px;
-  border: 1px solid rgba(128, 128, 128, 0.35);
-  border-radius: 6px;
-  background: transparent;
+  font-weight: 500;
+  padding: 5px 11px;
+  border: 1px solid var(--smcp-line-strong);
+  border-radius: 8px;
+  background: var(--smcp-fill);
   color: inherit;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
 }
-.btn:hover { background: rgba(128, 128, 128, 0.1); }
+.btn:hover { background: var(--smcp-fill-hover); }
 .btn:disabled { opacity: 0.5; cursor: default; }
-.btnActive { background: rgba(128, 128, 128, 0.15); }
-.btnPrimary { border-color: currentColor; font-weight: 600; }
-.btnDanger { color: #e5534b; border-color: rgba(229, 83, 75, 0.4); }
+.btnActive { background: var(--smcp-fill-hover); }
+.btnPrimary {
+  background: var(--smcp-accent);
+  border-color: var(--smcp-accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btnPrimary:hover { filter: brightness(1.06); }
+/* 删除默认只留红字，hover 才给底色：一行里只留一个视觉重点 */
+.btnDanger {
+  color: var(--smcp-danger);
+  border-color: transparent;
+  background: transparent;
+  opacity: 0.72;
+}
+.btnDanger:hover { opacity: 1; background: var(--smcp-danger-soft); }
+.btnDanger:disabled { opacity: 0.4; }
 
+/* ── detail block ───────────────────────────────────────────────────── */
 .detail {
-  margin: 4px 0 0 0;
-  padding: 10px;
-  border: 1px solid rgba(128, 128, 128, 0.15);
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.04);
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--smcp-line-soft);
+  border-radius: var(--smcp-radius);
+  background: var(--smcp-fill);
 }
 .pre {
   margin: 8px 0 0;
-  padding: 8px;
-  border-radius: 6px;
-  background: rgba(128, 128, 128, 0.08);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 12px;
+  border-radius: 9px;
+  border: 1px solid var(--smcp-line-soft);
+  background: light-dark(rgba(20, 20, 30, 0.03), rgba(0, 0, 0, 0.25));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
+  line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 320px;
@@ -165,26 +335,32 @@
 }
 .scanList { display: flex; flex-direction: column; gap: 8px; }
 
+/* ── inputs ─────────────────────────────────────────────────────────── */
 .input, .inputGrow, .inputMono {
   font: inherit;
   font-size: 13px;
-  padding: 6px 8px;
-  border: 1px solid rgba(128, 128, 128, 0.35);
-  border-radius: 6px;
-  background: transparent;
+  padding: 7px 10px;
+  border: 1px solid var(--smcp-line-strong);
+  border-radius: 9px;
+  background: var(--smcp-fill);
   color: inherit;
   box-sizing: border-box;
   width: 100%;
 }
+.input:focus, .inputGrow:focus, .inputMono:focus {
+  outline: none;
+  border-color: var(--smcp-accent);
+  box-shadow: 0 0 0 3px var(--smcp-accent-soft);
+}
 .inputGrow { flex: 1 1 auto; width: auto; min-width: 240px; }
-.inputMono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.inputMono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .filterSelect {
   font: inherit;
   font-size: 13px;
-  padding: 6px 8px;
-  border: 1px solid rgba(128, 128, 128, 0.35);
-  border-radius: 6px;
-  background: transparent;
+  padding: 7px 10px;
+  border: 1px solid var(--smcp-line-strong);
+  border-radius: 9px;
+  background: var(--smcp-fill);
   color: inherit;
   width: auto;
   flex: 0 0 auto;
@@ -193,4 +369,4 @@ textarea.input { resize: vertical; }
 
 .form { display: flex; flex-direction: column; gap: 10px; }
 .fieldLabel { display: flex; flex-direction: column; gap: 4px; }
-.fieldName { font-size: 12px; color: rgba(128, 128, 128, 1); }
+.fieldName { font-size: 12px; color: color-mix(in srgb, currentColor 62%, transparent); }
