@@ -79,7 +79,7 @@ Windows PowerShell 下把 `link:$(pwd)` 换成完整路径，例如：
 
 `dsh plugin` 会把包装进 profile 并自动加入插件层（本包声明了 `dsh.bundle.patch`），无需手动改配置。改完源码后重跑 `pnpm build`，再重启 `dsh web`。
 
-> 装在 profile 里的是**链接目录**时，请留意一个坑：宿主解析 `@deepseek-ai/dsh-mcp-client`、`@deepseek-ai/dsh-settings` 这类裸导入时会**先命中插件目录自己的 `node_modules`**。若那里存在与内核不同版本的副本，宿主可能加载不匹配的实现而**启动失败**。本仓库自带 `scripts/fix-host-deps.mjs` 帮你把这两个条目的链接指回内核（`--check` 只读体检，修复从不删除任何东西，内核位置由 `DSH_DESKTOP_ROOT` / `DSH_DESKTOP_KERNEL` 指定）；更稳的做法是**构建与安装分离**：在别处构建，只把 `lib/` 拷回被链接的目录。
+> 装在 profile 里的是**链接目录**时，请留意一个坑：宿主解析 `@deepseek-ai/dsh-mcp-client`、`@deepseek-ai/dsh-settings` 这类裸导入时会**先命中插件目录自己的 `node_modules`**。若那里存在与内核不同版本的副本，宿主可能加载不匹配的实现而**启动失败**。本仓库自带 `scripts/fix-host-deps.mjs` 帮你把这两个条目的链接指回内核（`--check` 只读体检，修复从不删除任何东西；内核位置依次取 `DSH_DESKTOP_KERNEL` → `DSH_DESKTOP_ROOT` → 已有链接指向的内核 → 常见安装位置，所以不设环境变量也能跑）；更稳的做法是**构建与安装分离**：在别处构建，只把 `lib/` 拷回被链接的目录。
 > （本包对 `@deepseek-ai/*` 只声明 `peerDependencies`，所以**从 GitHub / npm 安装不会带入这些副本，不受此坑影响** —— 只有 `link:` 本地目录安装才需要这个守卫。）
 
 ### 方式三：npm

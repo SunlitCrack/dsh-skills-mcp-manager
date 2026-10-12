@@ -21,14 +21,24 @@
  *   node scripts/fix-host-deps.mjs            # verify + repair
  *   node scripts/fix-host-deps.mjs --check    # verify only (exit 1 when wrong)
  *
- * Kernel location (first one that applies):
- *   DSH_DESKTOP_KERNEL  full path to the kernel's node_modules directory
- *   DSH_DESKTOP_ROOT    the install root (official Harness or community Desktop);
- *                       the layout is probed, newest first:
- *                         resources/app/dsh/node_modules            (official Harness 0.2.x; app.asar unwrapped)
- *                         resources/app.asar.unpacked/node_modules (DSH Desktop 0.10.0+)
- *                         resources/app/node_modules               (earlier releases)
- *                         and the macOS `Contents/Resources/...` prefixes
+ * Kernel location, first one that applies:
+ *   1. DSH_DESKTOP_KERNEL  full path to the kernel's node_modules directory
+ *   2. DSH_DESKTOP_ROOT    the install root (official Harness or community Desktop)
+ *   3. the kernel an existing host-dependency link already points at — on a machine
+ *      with two shells installed (official Harness + community Desktop) this keeps
+ *      the tree that was chosen deliberately today, instead of re-guessing
+ *   4. well-known install roots, see `defaultRoots()` — Windows `D:\DeepSeek Harness`,
+ *      `D:\DSH Desktop`, `%LOCALAPPDATA%\Programs\…`, `C:\Program Files\…`;
+ *      macOS `/Applications/…`; Linux `~/.local/share/…`
+ *
+ * With (2) and (4) the layout is probed, newest first:
+ *   resources/app/dsh/node_modules            (official Harness 0.2.x; app.asar unwrapped)
+ *   resources/app.asar.unpacked/node_modules  (DSH Desktop 0.10.0+)
+ *   resources/app/node_modules                (earlier releases)
+ *   and the macOS `Contents/Resources/...` prefixes
+ *
+ * A probed location only counts when it really carries a kernel copy, so an empty
+ * or half-installed tree can never win over a usable one.
  *
  * Examples
  *   Windows  set DSH_DESKTOP_ROOT=D:\DeepSeek Harness
@@ -43,7 +53,7 @@
  */
 
 import { existsSync, mkdirSync, realpathSync, renameSync, symlinkSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** Bare specifiers the host half resolves at runtime (keep in sync with lib/index.js imports). */
@@ -80,18 +90,92 @@ function kernelCandidates(root) {
   ]
 }
 
+/** Whether a kernel `node_modules` directory actually carries one of the host deps. */
+function carriesKernel(path) {
+  return HOST_DEPS.some((dep) => existsSync(join(path, SCOPE, dep)))
+}
+
 /**
- * Resolve the kernel node_modules directory from the environment.
- * @returns the first candidate that actually carries the kernel copy, else the
- *   first candidate as a diagnostic path, or undefined without a root hint.
+ * Whether a path sits inside a package manager's own store.
+ * A `link:`/`file:` dependency resolves through `…/node_modules/.pnpm/<pkg>+<hash>/…`
+ * first, which carries a kernel-shaped directory but is a package-manager copy —
+ * exactly the thing this script exists to replace, never a kernel to keep.
+ */
+function isPackageStore(path) {
+  return /(?:^|[\\/])\.pnpm[\\/]/.test(path)
+}
+
+/**
+ * Install roots to probe when the environment names none and nothing is linked yet.
+ * These are guesses, so they are only trusted when the tree really carries a kernel
+ * copy — a wrong guess must never outrank a detected one.
+ * @returns candidate install roots, most likely first.
+ */
+function defaultRoots() {
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? ''
+  const localAppData = process.env.LOCALAPPDATA ?? ''
+  return [
+    'D:\\DeepSeek Harness',
+    'D:\\DSH Desktop',
+    localAppData === '' ? '' : join(localAppData, 'Programs', 'DeepSeek Harness'),
+    localAppData === '' ? '' : join(localAppData, 'Programs', 'DSH Desktop'),
+    'C:\\Program Files\\DeepSeek Harness',
+    'C:\\Program Files\\DSH Desktop',
+    '/Applications/DeepSeek Harness.app',
+    '/Applications/DSH Desktop.app',
+    home === '' ? '' : join(home, 'Applications', 'DeepSeek Harness.app'),
+    home === '' ? '' : join(home, 'Applications', 'DSH Desktop.app'),
+    home === '' ? '' : join(home, '.local', 'share', 'deepseek-harness'),
+    home === '' ? '' : join(home, '.local', 'share', 'dsh-desktop'),
+  ].filter((root) => root !== '')
+}
+
+/**
+ * The kernel an existing host-dependency link already points at.
+ * Requires the whole host-dependency set to sit in that scope, so a package-manager
+ * tree (which fans per-peer copies out across `.pnpm/<pkg>+<hash>` directories) can
+ * never be mistaken for a kernel.
+ * @returns the linked kernel `node_modules` directory, or undefined when nothing
+ *   usable is linked yet (a dangling link resolves to undefined as well).
+ */
+function linkedKernel() {
+  for (const dep of HOST_DEPS) {
+    const real = realOrUndefined(join(scopeDir, dep))
+    if (real === undefined) continue
+    if (basename(dirname(real)) !== SCOPE) continue
+    if (isPackageStore(real)) continue
+    const kernel = dirname(dirname(real))
+    if (!HOST_DEPS.every((name) => existsSync(join(kernel, SCOPE, name)))) continue
+    return kernel
+  }
+  return undefined
+}
+
+/**
+ * Probe one install root for a layout that carries the kernel.
+ * @returns the first candidate that carries it, else the first candidate as a
+ *   diagnostic path.
+ */
+function probeRoot(root) {
+  const candidates = kernelCandidates(root)
+  return candidates.find((path) => carriesKernel(path) && !isPackageStore(path)) ?? candidates[0]
+}
+
+/**
+ * Resolve the kernel node_modules directory: explicit environment first, then the
+ * tree already linked, then well-known install roots.
+ * @returns the kernel directory, or undefined when nothing usable was found.
  */
 function kernelRoot() {
   if (process.env.DSH_DESKTOP_KERNEL) return process.env.DSH_DESKTOP_KERNEL
-  if (process.env.DSH_DESKTOP_ROOT) {
-    const candidates = kernelCandidates(process.env.DSH_DESKTOP_ROOT)
-    return candidates.find((path) => existsSync(join(path, SCOPE, HOST_DEPS[0]))) ?? candidates[0]
+  if (process.env.DSH_DESKTOP_ROOT) return probeRoot(process.env.DSH_DESKTOP_ROOT)
+  const linked = linkedKernel()
+  if (linked !== undefined) return linked
+  const hits = defaultRoots().map(probeRoot).filter(carriesKernel)
+  if (hits.length > 1) {
+    console.log(`note: ${hits.length} kernels found (${hits.join(', ')}); using the first — set DSH_DESKTOP_ROOT to choose another`)
   }
-  return undefined
+  return hits[0]
 }
 
 /** Compare two paths the way Windows resolves links (case-insensitive). */

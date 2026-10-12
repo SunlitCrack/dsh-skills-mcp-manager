@@ -6,6 +6,28 @@
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-10-12
+
+`scripts/fix-host-deps.mjs` 的内核定位不再依赖环境变量。
+
+### 变更
+
+- **内核定位分四层**：`DSH_DESKTOP_KERNEL` → `DSH_DESKTOP_ROOT` → **已有宿主依赖链接指向的内核**
+  → **常见安装位置**（Windows `D:\DeepSeek Harness`、`D:\DSH Desktop`、`%LOCALAPPDATA%\Programs\…`、
+  `C:\Program Files\…`；macOS `/Applications/…`；Linux `~/.local/share/…`）。此前只认前两层，
+  没设环境变量时脚本直接报 `kernel location unknown` 什么都不做。
+- **包管理器存储不会被误当内核**：`link:` 依赖解析出的 `…/node_modules/.pnpm/<pkg>+<hash>/…` 被显式排除；
+  "沿用已有链接"只在该 scope 里**整套宿主依赖都在**时才采用。
+- **多内核有提示**：一台机器装了多个壳时（官方 Harness + 社区 Desktop），探测到多个内核会打印一行 note
+  说明用了哪个、如何用 `DSH_DESKTOP_ROOT` 改选。
+
+### 验证（本机）
+
+- 裸跑（无环境变量、已有链接）→ `--check` 通过、exit 0；
+- 裸跑（无环境变量、全新目录）→ 自动定位官方壳内核并建立两条 junction，再 `--check` 通过；
+- 开发树场景（`node_modules` 是 pnpm 副本）→ 正确报 `resolves to …\.pnpm\…, expected …`、exit 1，
+  不再把 `.pnpm` 目录误报成内核。
+
 ## [0.3.5] - 2026-10-12
 
 适配 **DeepSeek Harness 0.2.0-rc.2（官方壳）**，并入此前只留在本地分支出的一轮改动。
@@ -139,7 +161,8 @@
 - MCP：表单 / JSON 新建服务器、测试连接、启停（真实连接与断开）、编辑删除，配置存 `~/.dsh/mcp.json`。
 - 通过 `@deepseek-ai/dsh-mcp-client` 挂载真实连接，工具注册为 `mcp__<server>__<tool>`。
 
-[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.6
 [0.3.5]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.5
 [0.3.4]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.4
 [0.3.0]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.0
