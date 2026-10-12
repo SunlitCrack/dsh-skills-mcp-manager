@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-10-12
+
+指令文件页签的「编辑」改成「详情」。
+
+### 修复
+
+- **「编辑」点了没反应**：该按钮把 textarea 追加在整页**最底部**，而指令文件列表一长（用户级 + 项目根 + 逐级目录），
+  点击后视口里没有任何变化，看起来像坏了。实测接口 `POST /api/dsh-skills-mcp/instructions/read` 一直返回 200，
+  问题只在反馈位置，不在读写。
+
+### 变更
+
+- 指令文件与技能页签统一：存在的文件给 **「详情」**（行内展开、按钮切「收起」，等宽字体显示全文，
+  带路径 / 字节数与截断提示），就地编辑与「保存」一并删除。
+- 「新建」保留（缺失席位仍可创建，动作按钮文案改为「创建」），「删除」不变。
+- 服务端两条路由都保留：`instructions/read` 服务详情，`instructions/save` 服务新建。
+
 ## [0.3.6] - 2026-10-12
 
 `scripts/fix-host-deps.mjs` 的内核定位不再依赖环境变量。
@@ -161,7 +178,8 @@
 - MCP：表单 / JSON 新建服务器、测试连接、启停（真实连接与断开）、编辑删除，配置存 `~/.dsh/mcp.json`。
 - 通过 `@deepseek-ai/dsh-mcp-client` 挂载真实连接，工具注册为 `mcp__<server>__<tool>`。
 
-[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.7
 [0.3.6]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.6
 [0.3.5]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.5
 [0.3.4]: https://github.com/SunlitCrack/dsh-skills-mcp-manager/releases/tag/v0.3.4

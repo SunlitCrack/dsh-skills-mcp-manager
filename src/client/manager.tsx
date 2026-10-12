@@ -5,7 +5,7 @@
  * the original dynamic plugin; the card chrome above stays bilingual.
  */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { SkillsMcpApi } from './api.ts'
 import type { InstructionDetail, InstructionSlot, McpServerConfig, McpServerSummary, ScannedSkill, SkillSummary } from '../protocol.ts'
 import css from './settings-card.module.css'
@@ -513,13 +513,16 @@ function instructionGroupLabel(scope: string, dir: string, absoluteDir: string):
 
 /**
  * Instruction files (the AGENTS.md / CLAUDE.md family) — the third managed
- * dimension. Read-only listing of exactly the seats the harness will load,
- * plus edit / create / delete. No enable toggle: the harness selects by
- * filename, so a rename is a semantic change, not a switch.
+ * dimension. Read-only listing of exactly the seats the harness will load, plus
+ * detail / create / delete. No enable toggle: the harness selects by filename, so
+ * a rename is a semantic change, not a switch. No inline editing either — these
+ * files are read into every turn, so the panel shows what is on disk (the same
+ * shape the skills tab uses) and leaves rewriting to the editor of your choice.
  */
 function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: () => void }) {
   const [list, setList] = useState<{ loading: boolean; slots: InstructionSlot[]; error: string; projectRoot: string; markerFound: boolean }>({ loading: true, slots: [], error: '', projectRoot: '', markerFound: false })
-  const [editing, setEditing] = useState<{ path: string; displayPath: string; bytes: number; truncated: boolean; creating: boolean } | null>(null)
+  const [viewing, setViewing] = useState<{ path: string; displayPath: string; bytes: number; truncated: boolean; content: string } | null>(null)
+  const [creating, setCreating] = useState<{ path: string; displayPath: string } | null>(null)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
@@ -533,30 +536,33 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
   }
   useEffect(() => { load() }, [props.cwd, props.refreshKey])
 
-  const openForEdit = (slot: InstructionSlot) => {
+  const openDetail = (slot: InstructionSlot) => {
     setMsg('')
     setConfirmDel(null)
-    if (!slot.exists) {
-      setEditing({ path: slot.path, displayPath: slot.displayPath, bytes: 0, truncated: false, creating: true })
-      setDraft(instructionStarter(slot))
-      return
-    }
+    if (viewing !== null && viewing.path === slot.path) { setViewing(null); return }
+    setViewing(null)
     setBusy(slot.path)
     api.readInstruction(slot.path, props.cwd).then((file: InstructionDetail) => {
       setBusy('')
-      setEditing({ path: file.path, displayPath: file.displayPath, bytes: file.bytes, truncated: file.truncated, creating: false })
-      setDraft(file.content)
+      setViewing({ path: file.path, displayPath: file.displayPath, bytes: file.bytes, truncated: file.truncated, content: file.content })
     }).catch((e) => { setBusy(''); setMsg(String((e as Error)?.message || e)) })
   }
 
-  const save = () => {
-    if (editing === null) return
+  const openCreate = (slot: InstructionSlot) => {
+    setMsg('')
+    setConfirmDel(null)
+    setCreating({ path: slot.path, displayPath: slot.displayPath })
+    setDraft(instructionStarter(slot))
+  }
+
+  const create = () => {
+    if (creating === null) return
     setBusy('save')
     setMsg('')
-    api.saveInstruction(editing.path, draft, props.cwd).then(() => {
+    api.saveInstruction(creating.path, draft, props.cwd).then(() => {
       setBusy('')
-      setMsg('已保存 ' + editing.displayPath + '（下一个会话生效）')
-      setEditing(null)
+      setMsg('已创建 ' + creating.displayPath + '（下一个会话生效）')
+      setCreating(null)
       load()
       props.onChanged()
     }).catch((e) => { setBusy(''); setMsg(String((e as Error)?.message || e)) })
@@ -570,7 +576,8 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
     api.deleteInstruction(slot.path, props.cwd).then(() => {
       setBusy('')
       setMsg('已删除 ' + slot.displayPath)
-      if (editing !== null && editing.path === slot.path) setEditing(null)
+      if (viewing !== null && viewing.path === slot.path) setViewing(null)
+      if (creating !== null && creating.path === slot.path) setCreating(null)
       load()
       props.onChanged()
     }).catch((e) => { setBusy(''); setMsg(String((e as Error)?.message || e)) })
@@ -597,7 +604,7 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
         </div>
         <div className={css.desc}>
           每轮会被读进上下文的规则文件；顺序 = 用户级 → 项目根 → 逐级深入（越具体越优先）。
-          文件名是白名单（AGENTS.md / CLAUDE.md / *.local.md），改名等于不再被读取，所以这里只做查看 / 编辑 / 新建 / 删除。
+          文件名是白名单（AGENTS.md / CLAUDE.md / *.local.md），改名等于不再被读取，所以这里只做查看 / 新建 / 删除。
         </div>
         {props.cwd !== '' && list.projectRoot !== ''
           ? <div className={css.desc}>
@@ -615,57 +622,66 @@ function InstructionsPanel(props: { cwd: string; refreshKey: number; onChanged: 
                   <div className={css.groupH}>{group.label}</div>
                   {group.slots.map((slot) => {
                     const isBusy = busy === slot.path
+                    const opened = viewing !== null && viewing.path === slot.path
                     return (
-                      <div key={slot.path} className={css.row}>
-                        <div className={css.main}>
-                          <div className={css.name}>
-                            {slot.name}
-                            {slot.exists ? '' : ' （未创建）'}
-                            {slot.local ? ' · 个人覆盖' : ''}
+                      <Fragment key={slot.path}>
+                        <div className={css.row}>
+                          <div className={css.main}>
+                            <div className={css.name}>
+                              {slot.name}
+                              {slot.exists ? '' : ' （未创建）'}
+                              {slot.local ? ' · 个人覆盖' : ''}
+                            </div>
+                            <div className={css.desc}>
+                              {slot.displayPath}
+                              {slot.exists ? ` · ${slot.bytes} B` : ''}
+                              {slot.oversize ? ' · ⚠ 超过 1 MB，DSH 会忽略该文件' : ''}
+                            </div>
                           </div>
-                          <div className={css.desc}>
-                            {slot.displayPath}
-                            {slot.exists ? ` · ${slot.bytes} B` : ''}
-                            {slot.oversize ? ' · ⚠ 超过 1 MB，DSH 会忽略该文件' : ''}
-                          </div>
+                          <span className={css.badge}>{slot.exists ? '会被读取' : '缺失'}</span>
+                          {slot.exists
+                            ? <button type="button" className={css.btn} disabled={isBusy} onClick={() => { openDetail(slot) }}>{isBusy ? '读取中…' : (opened ? '收起' : '详情')}</button>
+                            : <button type="button" className={`${css.btn} ${css.btnPrimary}`} onClick={() => { openCreate(slot) }}>新建</button>}
+                          {slot.exists
+                            ? (
+                              <button type="button" className={`${css.btn} ${css.btnDanger}`} disabled={isBusy} onClick={() => { remove(slot) }}>
+                                {confirmDel === slot.path ? '确认删除?' : '删除'}
+                              </button>
+                              )
+                            : null}
                         </div>
-                        <span className={css.badge}>{slot.exists ? '会被读取' : '缺失'}</span>
-                        {slot.exists
-                          ? <button type="button" className={css.btn} disabled={isBusy} onClick={() => { openForEdit(slot) }}>{isBusy ? '读取中…' : '编辑'}</button>
-                          : <button type="button" className={`${css.btn} ${css.btnPrimary}`} onClick={() => { openForEdit(slot) }}>新建</button>}
-                        {slot.exists
-                          ? (
-                            <button type="button" className={`${css.btn} ${css.btnDanger}`} disabled={isBusy} onClick={() => { remove(slot) }}>
-                              {confirmDel === slot.path ? '确认删除?' : '删除'}
-                            </button>
-                            )
+                        {opened
+                          ? <div className={css.detail}>
+                              <div className={css.desc}>
+                                {viewing.displayPath}{' · '}{viewing.bytes} B
+                                {viewing.truncated ? ' · 文件超过 512 KiB，只显示前一段' : ''}
+                              </div>
+                              <pre className={css.pre}>{viewing.content}</pre>
+                            </div>
                           : null}
-                      </div>
+                      </Fragment>
                     )
                   })}
                 </div>
               )))}
       </div>
-      {editing
+      {creating
         ? (
           <div className={css.section}>
             <div className={css.inline}>
-              <div className={css.hGrow}>{editing.creating ? '新建 ' : '编辑 '}{editing.displayPath}</div>
+              <div className={css.hGrow}>新建 {creating.displayPath}</div>
             </div>
-            {editing.truncated
-              ? <div className={css.note}>文件超过 512 KiB，编辑器只载入了前一段；保存会覆盖整个文件，请谨慎。</div>
-              : null}
             <textarea
               className={css.inputMono}
-              rows={14}
+              rows={10}
               value={draft}
               spellCheck={false}
               onChange={(e) => { setDraft(e.target.value) }}
             />
             <div className={css.inline}>
-              <button type="button" className={`${css.btn} ${css.btnPrimary}`} disabled={busy === 'save'} onClick={save}>{busy === 'save' ? '保存中…' : '保存'}</button>
-              <button type="button" className={css.btn} onClick={() => { setEditing(null); setMsg('') }}>取消</button>
-              <div className={css.desc}>保存后写入磁盘，下一个会话生效（当前会话已加载的指令不变）。</div>
+              <button type="button" className={`${css.btn} ${css.btnPrimary}`} disabled={busy === 'save'} onClick={create}>{busy === 'save' ? '创建中…' : '创建'}</button>
+              <button type="button" className={css.btn} onClick={() => { setCreating(null); setMsg('') }}>取消</button>
+              <div className={css.desc}>创建后写入磁盘，下一个会话生效（当前会话已加载的指令不变）。</div>
             </div>
           </div>
           )
