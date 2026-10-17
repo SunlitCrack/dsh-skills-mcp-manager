@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-10-17
+
+适配 DeepSeek Harness 0.2.1：设置页入口在 0.2.1 的类型环境下报 TS7006，并补上 `useWorkspaces` 缺失时的兜底。
+
+### 修复
+
+- `SettingsCard.tsx`：`useWorkspaces` 的 selector 参数改为显式结构类型 `WorkspacesSnapshotLike`（与同文件 `useSessions` 的既有写法一致）。变更是**纯类型**的，产物逻辑不变。
+- `SettingsCard.tsx`：`useWorkspaces` 不再直接调用——宿主没注入这个标准 prop 时回退为空字符串，避免整页抛错。
+
+### 说明
+
+- 根因不在内核 API：`@deepseek-ai/dsh-client-runtime@0.1.1` 的 `.d.ts` 引用了未随包发布的 `../workspaces/service.ts`，`skipLibCheck` 把它降级成 `any`，到调用点就是隐式 any。
+- 仍兼容 0.1.x / 0.2.0 / 0.2.1 三个运行时；`devDependencies` 未改（CI 用 pnpm 10 + `--frozen-lockfile`）。
+
+### 验证
+
+- `tsc --noEmit`（按 0.2.1-rc.2 的内核类型）：通过
+- `pnpm build`（tsc → tsdown → wrap-client）：通过，`lib/client.js` 已重建
+- `pnpm test`：12/12 通过
+
 ## [0.3.9] - 2026-10-12
 
 前端改版：卡片行（方案 A）。功能、接口与路由一律不变，只动视觉与少量 DOM。

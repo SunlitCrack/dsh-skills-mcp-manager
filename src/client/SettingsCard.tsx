@@ -28,6 +28,11 @@ interface SessionsSnapshotLike {
   byId?: Record<string, SessionSummaryLike | undefined>
 }
 
+/** Workspace list snapshot the kernel's `useWorkspaces` hook selects from. */
+interface WorkspacesSnapshotLike {
+  items?: ReadonlyArray<{ path?: string } | undefined>
+}
+
 /**
  * The Session id the kernel persists as "current" (`dsh.sessions.current`, a
  * `createSnapshotStore` persisted under that name). Second opinion only — the
@@ -66,6 +71,7 @@ export function SkillsMcpSection(props: SkillsMcpSectionProps) {
   //    恒为空 → 永远落到第 3 级（= 第一个工作区），这正是「切到 inf-k8s 后仍显示上一个目录」的原因。
   const hooks = props as unknown as {
     useSessions?: <T>(selector: (snapshot: SessionsSnapshotLike) => T) => T
+    useWorkspaces?: <T>(selector: (snapshot: WorkspacesSnapshotLike) => T) => T
   }
   const mainCwd = hooks.useSessions !== undefined
     ? hooks.useSessions((s) => {
@@ -82,10 +88,13 @@ export function SkillsMcpSection(props: SkillsMcpSectionProps) {
     ? hooks.useSessions((s) => (selectedId === '' ? '' : (s?.byId?.[selectedId]?.cwd ?? '')))
     : ''
 
-  const workspaceCwd = props.useWorkspaces((s) => {
-    const items = (s && s.items) || []
-    return items.length > 0 ? (items[0].path || '') : ''
-  })
+  const workspaceCwd = hooks.useWorkspaces !== undefined
+    ? hooks.useWorkspaces((s) => {
+        const items = s?.items ?? []
+        const first = items[0]
+        return first?.path ?? ''
+      })
+    : ''
   const autoCwd = mainCwd || selectedCwd || workspaceCwd
   const autoSource = mainCwd !== ''
     ? '当前会话'
